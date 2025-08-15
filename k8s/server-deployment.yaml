@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: standup-server
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: standup-server
+  template:
+    metadata:
+      labels:
+        app: standup-server
+    spec:
+      containers:
+      - name: server
+        image: standup-server:latest
+        imagePullPolicy: Never  # Use local image
+        ports:
+        - containerPort: 4000
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: MONGODB_URI
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: REDIS_URL
+        - name: BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: BASE_URL
+        - name: FRONTEND_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: FRONTEND_URL
+        - name: SLACK_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: standup-secrets
+              key: SLACK_CLIENT_ID
+        - name: SLACK_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: standup-secrets
+              key: SLACK_CLIENT_SECRET
+        - name: SLACK_SIGNING_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: standup-secrets
+              key: SLACK_SIGNING_SECRET
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: standup-secrets
+              key: OPENAI_API_KEY
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: standup-server
+  namespace: default
+spec:
+  selector:
+    app: standup-server
+  ports:
+  - port: 4000
+    targetPort: 4000
+  type: ClusterIP

@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: standup-celery-worker
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: standup-celery-worker
+  template:
+    metadata:
+      labels:
+        app: standup-celery-worker
+    spec:
+      containers:
+      - name: celery-worker
+        image: standup-scheduler:latest
+        imagePullPolicy: Never  # Use local image
+        command: ["celery", "-A", "celery_app", "worker", "--loglevel=info"]
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: MONGODB_URI
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: REDIS_URL
+        - name: LANGGRAPH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: LANGGRAPH_SERVICE_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: standup-celery-beat
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: standup-celery-beat
+  template:
+    metadata:
+      labels:
+        app: standup-celery-beat
+    spec:
+      containers:
+      - name: celery-beat
+        image: standup-scheduler:latest
+        imagePullPolicy: Never  # Use local image
+        command: ["celery", "-A", "celery_app", "beat", "--loglevel=info"]
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: MONGODB_URI
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: REDIS_URL
+        - name: LANGGRAPH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: standup-config
+              key: LANGGRAPH_SERVICE_URL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

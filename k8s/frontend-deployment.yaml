@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: standup-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: standup-frontend
+  template:
+    metadata:
+      labels:
+        app: standup-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: standup-frontend:latest
+        imagePullPolicy: Never  # Use local image
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_BACKEND_URL
+          value: "http://standup-server:4000"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: standup-frontend
+  namespace: default
+spec:
+  selector:
+    app: standup-frontend
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: LoadBalancer
