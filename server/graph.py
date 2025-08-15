@@ -67,25 +67,19 @@ async def summarize_standups_node(state: StandupState) -> StandupState:
             "messages": [*state["messages"], error_msg]
         }
 
-# Create the graph
 def create_standup_graph():
     """Create the standup workflow graph with interrupt capability"""
     
-    # Create the graph
     workflow = StateGraph(StandupState)
     
-    # Add nodes
     workflow.add_node("collect_standups", collect_standups_node)
     workflow.add_node("summarize_standups", summarize_standups_node)
     
-    # Add edges
     workflow.add_edge("collect_standups", "summarize_standups")
     workflow.add_edge("summarize_standups", END)
     
-    # Set entry point
     workflow.set_entry_point("collect_standups")
     
-    # Compile with persistence
     memory = MemorySaver()
     app = workflow.compile(checkpointer=memory)
     
@@ -98,11 +92,9 @@ def get_standup_app():
         _standup_app = create_standup_graph()
     return _standup_app
 
-# Helper function to start a standup workflow
 def start_standup_workflow(workspace_id: str, channel_id: str = None, thread_id: str = None):
     """Start a new standup workflow for a workspace"""
     
-    # Create initial state
     initial_state = StandupState(
         workspace_id=workspace_id,
         run_id="",
@@ -112,31 +104,24 @@ def start_standup_workflow(workspace_id: str, channel_id: str = None, thread_id:
         channel_id=channel_id or ""
     )
     
-    # Create the graph
     app = create_standup_graph()
     
-    # Start the workflow
     if thread_id:
-        # Resume existing thread
         config = {"configurable": {"thread_id": thread_id}}
         result = app.invoke(initial_state, config)
     else:
-        # Start new thread - need to provide configurable keys for checkpointer
         new_thread_id = f"standup_{workspace_id}_{int(time.time())}"
         config = {"configurable": {"thread_id": new_thread_id}}
         result = app.invoke(initial_state, config)
-        # Add thread_id to result for external use
         result["thread_id"] = new_thread_id
     
     return result
 
 
-# Function to resume a paused workflow using Command
 def resume_standup_workflow(thread_id: str, app: StateGraph):
     """Resume a paused standup workflow after the wait period"""
     
     try:
-        # Use Command to resume the workflow
         command = Command(resume={})
         config = {"configurable": {"thread_id": thread_id}}
         result = app.invoke(command, config=config)
@@ -144,10 +129,8 @@ def resume_standup_workflow(thread_id: str, app: StateGraph):
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
-# Async versions (these are the main functions to use)
 async def start_standup_workflow_async(workspace_id: str, channel_id: str = None, thread_id: str = None, app: StateGraph = None):
     """Async version of the standup workflow"""
-    # Create initial state
     initial_state = StandupState(
         workspace_id=workspace_id,
         run_id="",
@@ -157,24 +140,19 @@ async def start_standup_workflow_async(workspace_id: str, channel_id: str = None
         channel_id=channel_id or ""
     )
     
-    # Use provided app or get global instance
     app = app or get_standup_app()
 
     
-    # Start the workflow
     result = {}
     if thread_id:
-        # Resume existing thread
         config = {"configurable": {"thread_id": thread_id}}
         result = await app.ainvoke(initial_state, config=config)
         result["thread_id"] = thread_id
     else:
-        # Start new thread - need to provide configurable keys for checkpointer
         print("Starting new thread")
         new_thread_id = f"standup_{workspace_id}_{int(time.time())}"
         config = {"configurable": {"thread_id": new_thread_id}}
         result = await app.ainvoke(initial_state, config=config)
-        # Add thread_id to result for external use
         result["thread_id"] = new_thread_id
     print(f"Result: {result}")
     return result
@@ -186,7 +164,6 @@ async def resume_standup_workflow_async(thread_id: str, app: StateGraph = None):
     app = app or get_standup_app()
     
     try:
-        # Use Command to resume the workflow
         command = Command(resume={"resume": True})
         config = {"configurable": {"thread_id": thread_id}}
         print(f"Config: {config}")
@@ -195,7 +172,6 @@ async def resume_standup_workflow_async(thread_id: str, app: StateGraph = None):
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
-# Function to check workflow status
 async def check_workflow_status(thread_id: str, app: StateGraph = None):
     """Check the current status of a workflow thread"""
     app = app or get_standup_app()
@@ -214,7 +190,6 @@ async def start_standup_with_timer_async(workspace_id: str, channel_id: str = No
     
     app = app or get_standup_app()
     
-    # Start the workflow
     result = await start_standup_workflow_async(workspace_id, channel_id=channel_id, app=app)
     
     if "thread_id" in result:
@@ -222,7 +197,6 @@ async def start_standup_with_timer_async(workspace_id: str, channel_id: str = No
         print(f"✅ Workflow started with thread ID: {thread_id}")
         print("⏸️  Workflow paused after standup collection. Waiting 5 minutes...")
         
-        # Wait for 5 minutes
         await asyncio.sleep(90)  # 5 minutes = 300 seconds
         
         print(f"⏰ 5 minutes elapsed. Resuming workflow with thread ID: {thread_id}")
@@ -237,13 +211,11 @@ async def start_standup_with_timer_async(workspace_id: str, channel_id: str = No
         print("❌ Failed to start workflow - no thread_id in result")
         return None
 
-# HTTP endpoint functions for scheduler integration
 async def start_standup_endpoint(workspace_id: str, channel_id: str = None):
     """HTTP endpoint function to start a standup workflow"""
     try:
         print(f"🚀 Starting standup for workspace: {workspace_id}")
         
-        # Get channel preference if not provided
         if not channel_id:
             channel_pref = get_channel_preference(workspace_id)
             if channel_pref:
@@ -252,7 +224,6 @@ async def start_standup_endpoint(workspace_id: str, channel_id: str = None):
             else:
                 print("Warning: No channel selected for this workspace")
         
-        # Start the workflow using global app instance
         result = await start_standup_workflow_async(workspace_id, channel_id=channel_id, app=get_standup_app())
         
         if "thread_id" in result:
